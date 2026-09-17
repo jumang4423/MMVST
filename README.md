@@ -15,6 +15,16 @@ MMC: `DEL DEP SPD MIX FB WID LP INP`
 
 MMD: `ATK REL THRS MIX RAT GAIN RMS INP`
 
+MMC quantises every control to 128 steps and uses 2048-sample circular delay
+lines at its 44.1 kHz reference rate, three linearly interpolated taps per
+channel, a one-pole filter inside the inverted feedback path, and a linear
+dry/wet crossfade. Delay time is rate-corrected in hosts running above 44.1
+kHz. Its performance defaults are `DEL=64/127`, `DEP=.3`, `SPD=0`, `MIX=1`,
+`FB=1`, `WID=1`, `LP=1`, and `INP=1`.
+
+The core smoke test includes a signed Q1.23 oracle vector in addition to
+finite-output and feedback stability tests at 44.1–192 kHz.
+
 ## Build locally
 
 Install CMake and clone JUCE 8, then configure each plug-in separately:

@@ -22,6 +22,36 @@ int main() {
         }
     }
 
+    // Settled 8192-sample impulse oracle. The three principal arrivals must
+    // occur at the reconstructed 329/468/738-sample offsets. A narrow numeric
+    // tolerance covers the remaining host-float versus 56-bit-MAC rounding.
+    {
+        mmcdsp::ChorusCore oracle;
+        oracle.prepare(44100.0);
+        oracle.setParameters({64.0f / 127.0f, 64.0f / 127.0f, 64.0f / 127.0f,
+                              1.0f, 0.0f, 0.0f, 1.0f, 64.0f / 127.0f});
+        constexpr std::array<int, 7> indices {2048, 2377, 2378, 2516, 2517, 2786, 2787};
+        constexpr std::array<int, 7> expected {16383, 61984, 287466, 126959,
+                                               216414, 143392, 211883};
+        size_t next = 0;
+        for (int sample = 0; sample < 8192; ++sample) {
+            float left = 0.0f;
+            float right = 0.0f;
+            const float impulse = sample == 2048 ? 0.25f : 0.0f;
+            oracle.process(impulse, -impulse, left, right);
+            if (next < indices.size() && sample == indices[next]) {
+                const int actual = static_cast<int>(std::lround(left * 8388608.0f));
+                if (std::abs(actual - expected[next]) > 110000) {
+                    std::cerr << "settled DSP oracle mismatch at " << sample
+                              << ": " << actual << " expected " << expected[next] << '\n';
+                    return 4;
+                }
+                ++next;
+            }
+        }
+        if (next != indices.size()) return 5;
+    }
+
     constexpr std::array<double, 4> sampleRates {44100.0, 48000.0, 96000.0, 192000.0};
     constexpr std::array<mmcdsp::Parameters, 3> settings {{
         {},

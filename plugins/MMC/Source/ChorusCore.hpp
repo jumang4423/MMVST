@@ -34,7 +34,8 @@ public:
         for (auto& channel : delay) channel.fill(0.0f);
         writeIndex = 0;
         feedbackState = {};
-        phase = 0.0;
+        phase = 2.88720409;
+        blockPosition = 0;
         smoothed = rawTarget;
         smoothInitialised = false;
     }
@@ -65,16 +66,24 @@ public:
             delay[channel][writeIndex] = q23(dry[channel] * inputPathGain
                                               + feedbackState[channel] * feedbackGain);
 
-        const float centre = (16.0f + 992.0f * p[del]) * static_cast<float>(rateScale);
-        const float excursion = (992.0f * p[dep]) * static_cast<float>(rateScale);
+        const float centre = (17.0f + 992.0f * p[del]) * static_cast<float>(rateScale);
+        const float excursion = (506.0f * p[dep]) * static_cast<float>(rateScale);
         const float width = p[wid];
         const std::array<double, 3> offsets {0.0, twoPi / 3.0, 4.0 * pi / 3.0};
+        const double phasePerSample = twoPi * (p[spd] * p[spd] * (0x956 / 8388608.0)) / rateScale;
+        const double nextPhase = phase + phasePerSample * 16.0;
+        const float blockFraction = static_cast<float>(blockPosition) / 16.0f;
         std::array<float, 2> wet {};
         for (size_t tap = 0; tap < 3; ++tap) {
             const double leftPhase = phase + offsets[tap];
-            const double rightPhase = phase + offsets[tap] + pi * static_cast<double>(width);
-            wet[0] += readLinear(0, centre + excursion * static_cast<float>(std::sin(leftPhase))) * oneThird;
-            wet[1] += readLinear(1, centre + excursion * static_cast<float>(std::sin(rightPhase))) * oneThird;
+            const double rightPhase = leftPhase + pi * static_cast<double>(width);
+            const float leftMod = static_cast<float>(std::sin(leftPhase))
+                + blockFraction * static_cast<float>(std::sin(nextPhase + offsets[tap]) - std::sin(leftPhase));
+            const float rightMod = static_cast<float>(std::sin(rightPhase))
+                + blockFraction * static_cast<float>(std::sin(nextPhase + offsets[tap]
+                    + pi * static_cast<double>(width)) - std::sin(rightPhase));
+            wet[0] += readLinear(0, centre + excursion * leftMod) * oneThird;
+            wet[1] += readLinear(1, centre + excursion * rightMod) * oneThird;
         }
         wet[0] = q23(wet[0]);
         wet[1] = q23(wet[1]);
@@ -91,8 +100,10 @@ public:
         outputRight = q23(dry[1] * dryAmount + wet[1] * mixAmount);
 
         writeIndex = (writeIndex + 1) & ringMask;
-        phase += twoPi * (p[spd] * p[spd] * (0x956 / 8388608.0)) / rateScale;
-        if (phase >= twoPi) phase -= twoPi;
+        if (++blockPosition == 16) {
+            blockPosition = 0;
+            phase = std::fmod(nextPhase, twoPi);
+        }
     }
 
 private:
@@ -146,7 +157,8 @@ private:
     std::array<float, 2> feedbackState {};
     std::array<float, 8> rawTarget {64, 38, 0, 127, 127, 127, 127, 127};
     std::array<float, 8> smoothed {};
-    double phase = 0.0;
+    double phase = 2.88720409;
+    unsigned blockPosition = 0;
     bool smoothInitialised = false;
 };
 

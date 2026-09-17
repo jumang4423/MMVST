@@ -1,0 +1,58 @@
+name: Windows x64 VST3
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Check out MMVST
+        uses: actions/checkout@v4
+
+      - name: Check out JUCE
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: 8.0.10
+          path: JUCE
+          submodules: recursive
+
+      - name: Configure MMC
+        run: cmake -S plugins/MMC -B build/MMC -G "Visual Studio 17 2022" -A x64 -DJUCE_PATH="${{ github.workspace }}/JUCE"
+
+      - name: Build MMC
+        run: cmake --build build/MMC --config Release --target MMC_VST3 --parallel
+
+      - name: Test MMC core
+        run: |
+          cmake --build build/MMC --config Release --target core-smoke-test --parallel
+          ./build/MMC/Release/core-smoke-test.exe
+
+      - name: Configure MMD
+        run: cmake -S plugins/MMD -B build/MMD -G "Visual Studio 17 2022" -A x64 -DJUCE_PATH="${{ github.workspace }}/JUCE"
+
+      - name: Build MMD
+        run: cmake --build build/MMD --config Release --target MMD_VST3 --parallel
+
+      - name: Test MMD core
+        run: |
+          cmake --build build/MMD --config Release --target core-smoke-test --parallel
+          ./build/MMD/Release/core-smoke-test.exe
+
+      - name: Stage bundles
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item -Recurse build/MMC/MMC_artefacts/Release/VST3/MMC.vst3 dist/
+          Copy-Item -Recurse build/MMD/MMD_artefacts/Release/VST3/MMD.vst3 dist/
+          Copy-Item -Recurse supercollider dist/supercollider
+
+      - name: Upload Windows x64 VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: MMVST-Windows-x64
+          path: dist
+          if-no-files-found: error

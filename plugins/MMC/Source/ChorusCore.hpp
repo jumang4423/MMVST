@@ -19,9 +19,8 @@ struct Parameters {
     float inp = 1.0f;
 };
 
-// Independent reconstruction of the six-tap fixed-point chorus. Controls are
-// quantised to the machine's 0..127 domain before use. Its DSP ran at 44.1 kHz;
-// delay lengths and phase increments are time-corrected for modern host rates.
+// Six-tap chorus core. Controls are quantised to 128 steps. Delay lengths and
+// phase increments are time-corrected for modern host rates.
 class ChorusCore {
 public:
     void prepare(double newSampleRate) {
@@ -64,7 +63,7 @@ public:
         const float inputGain = 4.0f * p[inp] * p[inp];
         const std::array<float, 2> dry {q23(inputLeft * inputGain), q23(inputRight * inputGain)};
 
-        // P:$1477ac..$1477c7: inverted feedback with the original fixed bias.
+        // Inverted feedback with a small fixed bias.
         const float feedbackGain = -(p[fb] + 0x00fd71 / 8388608.0f);
         const float inputPathGain = 0.5f * (1.0f - feedbackGain);
         for (size_t channel = 0; channel < 2; ++channel)
@@ -141,9 +140,6 @@ private:
                    + fraction * (delay[channel][index1] - delay[channel][index0]));
     }
 
-    // Degree-six fit of the recovered 128-entry coefficient law. This keeps
-    // the reconstruction independent of ROM data (maximum coefficient error
-    // is below 0.00052).
     static const std::array<float, 128>& lpCoefficients() {
         static const std::array<float, 128> table = [] {
             std::array<float, 128> values {};

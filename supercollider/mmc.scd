@@ -1,7 +1,5 @@
 (
-// MMC: six linearly-interpolated taps, inverted filtered feedback and the
-// original 0..127 control domain. Native SC is floating point; the VST3 is the
-// reference implementation when fixed-point quantisation matters.
+// MMC: six linearly-interpolated taps with inverted filtered feedback.
 var effectName = \dirt_mmc;
 var numChannels = ~dirt.numChannels;
 
@@ -18,7 +16,6 @@ SynthDef(effectName.asString ++ numChannels, {
     var feedback = LocalIn.ar(2);
     var fbGain = 0 - (p[4] + (16r00fd71 / 8388608));
     var delayInput = (dry * ((1 - fbGain) * 0.5)) + (feedback * fbGain);
-    // Constants fitted against the emulated DSP's recovered tap positions.
     var centre = (14.91992352 + (992 * p[0])) / 44100;
     var excursion = (502.34559759 * p[1]) / 44100;
     var speed = p[2].squared * (16r000956 / 8388608) * 44100 / (2pi);
@@ -32,8 +29,6 @@ SynthDef(effectName.asString ++ numChannels, {
         Mix(DelayL.ar(delayInput[1], 0.2, rightTimes)) * (16r2aaaab / 8388608)
     ];
     var x = raw[6] / 127;
-    // Degree-six fit of the recovered 128-entry coefficient law (max error
-    // < 0.00052); convert its one-pole coefficient to an equivalent cutoff.
     var logPole = ((((((-11.8579733 * x + 26.22141973) * x - 22.32888259)
         * x + 8.98576210) * x - 1.69233625) * x + 7.66680329) * x - 6.11510228);
     var coefficient = 1 - exp(0 - exp(logPole));

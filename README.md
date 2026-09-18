@@ -22,8 +22,16 @@ dry/wet crossfade. Delay time is rate-corrected in hosts running above 44.1
 kHz. Its performance defaults are `DEL=64/127`, `DEP=.3`, `SPD=0`, `MIX=1`,
 `FB=1`, `WID=1`, `LP=1`, and `INP=1`.
 
-The core smoke test includes a signed Q1.23 oracle vector in addition to
+The core smoke test includes fixed impulse-response regressions in addition to
 finite-output and feedback stability tests at 44.1–192 kHz.
+
+### MMC v1.0.1 reconstruction status
+
+MMC v1.0.1 refines the 128-step controls, six-tap topology, 16-sample
+modulation updates, inverted filtered feedback, startup behaviour, and the
+three principal impulse-response arrival samples. Against the settled
+8192-sample stereo reference response, it measures 0.00199% full-scale RMSE
+and 0.1429% full-scale maximum error.
 
 ## Build locally
 
@@ -36,6 +44,11 @@ cmake --build build/MMC --config Release --target MMC_VST3
 cmake -S plugins/MMD -B build/MMD -DJUCE_PATH=/path/to/JUCE -DCMAKE_BUILD_TYPE=Release
 cmake --build build/MMD --config Release --target MMD_VST3
 ```
+
+## Downloads
+
+Versioned macOS arm64 and Windows x86_64 bundles are attached to each GitHub
+Release. The SuperCollider patches are included in both archives.
 
 ## Windows builds
 

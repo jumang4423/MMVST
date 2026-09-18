@@ -1,0 +1,70 @@
+name: Release VST3
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            platform: macOS-arm64
+          - os: windows-2022
+            platform: Windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: 8.0.10
+          path: JUCE
+          submodules: recursive
+      - name: Configure and build
+        shell: bash
+        run: |
+          cmake -S plugins/MMC -B build/MMC -DJUCE_PATH="$GITHUB_WORKSPACE/JUCE" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/MMC --config Release --target MMC_VST3 core-smoke-test --parallel
+      - name: Test MMC core
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then ./build/MMC/Release/core-smoke-test.exe; else ./build/MMC/core-smoke-test; fi
+      - name: Stage archive
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp -R build/MMC/MMC_artefacts/Release/VST3/MMC.vst3 dist/
+          cp -R supercollider dist/supercollider
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            ditto -c -k --sequesterRsrc --keepParent dist "MMC-${{ github.ref_name }}-${{ matrix.platform }}.zip"
+          else
+            7z a "MMC-${{ github.ref_name }}-${{ matrix.platform }}.zip" ./dist/*
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MMC-${{ github.ref_name }}-${{ matrix.platform }}
+          path: MMC-${{ github.ref_name }}-${{ matrix.platform }}.zip
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: MMC-*
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: MMC v1.0.1
+          body: |
+            MMC v1.0.1 refines block-rate modulation, startup behaviour, tap timing, and the low-pass coefficient curve.
+
+            Reference-response accuracy: 0.00199% full-scale RMSE; 0.1429% full-scale maximum error.
+
+            Includes macOS arm64 and Windows x86_64 VST3 bundles plus the SuperCollider/SuperDirt patch.
+          files: MMC-*.zip

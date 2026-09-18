@@ -41,7 +41,7 @@ int main() {
             oracle.process(impulse, -impulse, left, right);
             if (next < indices.size() && sample == indices[next]) {
                 const int actual = static_cast<int>(std::lround(left * 8388608.0f));
-                if (std::abs(actual - expected[next]) > 110000) {
+                if (std::abs(actual - expected[next]) > 13000) {
                     std::cerr << "settled DSP oracle mismatch at " << sample
                               << ": " << actual << " expected " << expected[next] << '\n';
                     return 4;

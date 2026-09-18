@@ -34,9 +34,12 @@ public:
         for (auto& channel : delay) channel.fill(0.0f);
         writeIndex = 0;
         feedbackState = {};
-        phase = 2.88720409;
+        phase = 5.92750579;
         blockPosition = 0;
-        smoothed = rawTarget;
+        startupBlocks = 0;
+        delayState = rawTarget[del] / 128.0f;
+        depthState = 0.0f;
+        widthState = 0.0f;
         smoothInitialised = false;
     }
 
@@ -44,16 +47,18 @@ public:
         rawTarget = {toRaw(value.del), toRaw(value.dep), toRaw(value.spd), toRaw(value.mix),
                      toRaw(value.fb), toRaw(value.wid), toRaw(value.lp), toRaw(value.inp)};
         if (!smoothInitialised) {
-            smoothed = rawTarget;
+            delayState = rawTarget[del] / 128.0f;
             smoothInitialised = true;
         }
     }
 
     void process(float inputLeft, float inputRight, float& outputLeft, float& outputRight) {
         std::array<float, 8> p {};
-        for (size_t i = 0; i < p.size(); ++i) {
-            smoothed[i] += 0.02f * (rawTarget[i] - smoothed[i]);
-            p[i] = smoothed[i] / 128.0f;
+        for (size_t i = 0; i < p.size(); ++i) p[i] = rawTarget[i] / 128.0f;
+        if (blockPosition == 0) {
+            delayState += 0.02f * (p[del] - delayState);
+            depthState += 0.02f * (p[dep] - depthState);
+            widthState += 0.02f * (p[wid] - widthState);
         }
 
         const float inputGain = 4.0f * p[inp] * p[inp];
@@ -66,11 +71,11 @@ public:
             delay[channel][writeIndex] = q23(dry[channel] * inputPathGain
                                               + feedbackState[channel] * feedbackGain);
 
-        const float centre = (17.0f + 992.0f * p[del]) * static_cast<float>(rateScale);
-        const float excursion = (506.0f * p[dep]) * static_cast<float>(rateScale);
-        const float width = p[wid];
+        const float centre = (14.91992352f + 992.0f * delayState) * static_cast<float>(rateScale);
+        const float excursion = (502.34559759f * depthState) * static_cast<float>(rateScale);
+        const float width = widthState;
         const std::array<double, 3> offsets {0.0, twoPi / 3.0, 4.0 * pi / 3.0};
-        const double phasePerSample = twoPi * (p[spd] * p[spd] * (0x956 / 8388608.0)) / rateScale;
+        const double phasePerSample = (p[spd] * p[spd] * (0x956 / 8388608.0)) / rateScale;
         const double nextPhase = phase + phasePerSample * 16.0;
         const float blockFraction = static_cast<float>(blockPosition) / 16.0f;
         std::array<float, 2> wet {};
@@ -87,6 +92,7 @@ public:
         }
         wet[0] = q23(wet[0]);
         wet[1] = q23(wet[1]);
+        if (startupBlocks < 128) wet = {};
 
         const auto lpIndex = static_cast<size_t>(std::clamp(rawTarget[lp], 0.0f, 127.0f));
         const float coefficient = lpCoefficients()[lpIndex];
@@ -95,7 +101,7 @@ public:
                                            + coefficient * (wet[channel] - feedbackState[channel]));
 
         const float mixAmount = p[mix];
-        const float dryAmount = (8388607.0f - smoothed[mix] * 65536.0f) / 8388608.0f;
+        const float dryAmount = (8388607.0f - rawTarget[mix] * 65536.0f) / 8388608.0f;
         outputLeft = q23(dry[0] * dryAmount + wet[0] * mixAmount);
         outputRight = q23(dry[1] * dryAmount + wet[1] * mixAmount);
 
@@ -103,6 +109,7 @@ public:
         if (++blockPosition == 16) {
             blockPosition = 0;
             phase = std::fmod(nextPhase, twoPi);
+            if (startupBlocks < 128) ++startupBlocks;
         }
     }
 
@@ -134,16 +141,18 @@ private:
                    + fraction * (delay[channel][index1] - delay[channel][index0]));
     }
 
-    // Analytic fit through recovered table endpoints and centre; no ROM bytes.
+    // Degree-six fit of the recovered 128-entry coefficient law. This keeps
+    // the reconstruction independent of ROM data (maximum coefficient error
+    // is below 0.00052).
     static const std::array<float, 128>& lpCoefficients() {
         static const std::array<float, 128> table = [] {
             std::array<float, 128> values {};
-            constexpr float minimum = 0.00221133f;
-            constexpr float midpoint = 0.09420741f;
-            const float ratio = midpoint / minimum;
             for (size_t i = 0; i < values.size(); ++i) {
-                const float x = static_cast<float>(i) / 64.0f;
-                values[i] = std::min(1.0f, minimum * std::pow(ratio, x));
+                const float x = static_cast<float>(i) / 127.0f;
+                const float logPole = ((((((-11.8579733f * x + 26.22141973f) * x
+                    - 22.32888259f) * x + 8.98576210f) * x - 1.69233625f) * x
+                    + 7.66680329f) * x - 6.11510228f);
+                values[i] = 1.0f - std::exp(-std::exp(logPole));
             }
             return values;
         }();
@@ -156,9 +165,12 @@ private:
     size_t writeIndex = 0;
     std::array<float, 2> feedbackState {};
     std::array<float, 8> rawTarget {64, 38, 0, 127, 127, 127, 127, 127};
-    std::array<float, 8> smoothed {};
-    double phase = 2.88720409;
+    double phase = 5.92750579;
     unsigned blockPosition = 0;
+    unsigned startupBlocks = 0;
+    float delayState = 0.5f;
+    float depthState = 0.0f;
+    float widthState = 0.0f;
     bool smoothInitialised = false;
 };
 

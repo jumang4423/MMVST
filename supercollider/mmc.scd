@@ -18,10 +18,11 @@ SynthDef(effectName.asString ++ numChannels, {
     var feedback = LocalIn.ar(2);
     var fbGain = 0 - (p[4] + (16r00fd71 / 8388608));
     var delayInput = (dry * ((1 - fbGain) * 0.5)) + (feedback * fbGain);
-    var centre = (17 + (992 * p[0])) / 44100;
-    var excursion = (506 * p[1]) / 44100;
-    var speed = p[2].squared * (16r000956 / 8388608) * 44100;
-    var phase = LFSaw.ar(speed, 1, pi, pi) + 2.88720409;
+    // Constants fitted against the emulated DSP's recovered tap positions.
+    var centre = (14.91992352 + (992 * p[0])) / 44100;
+    var excursion = (502.34559759 * p[1]) / 44100;
+    var speed = p[2].squared * (16r000956 / 8388608) * 44100 / (2pi);
+    var phase = LFSaw.ar(speed, 1, pi, pi) + 5.92750579;
     var tapPhase = phase + [0, 2pi / 3, 4pi / 3];
     var leftTimes = (centre + (tapPhase.sin * excursion)).clip(SampleDur.ir, 0.19);
     var rightTimes = (centre + ((tapPhase + (pi * p[5])).sin * excursion))

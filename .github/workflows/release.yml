@@ -41,7 +41,7 @@ jobs:
           cp -R build/MMC/MMC_artefacts/Release/VST3/MMC.vst3 dist/
           cp -R supercollider dist/supercollider
           if [[ "$RUNNER_OS" == "macOS" ]]; then
-            ditto -c -k --sequesterRsrc --keepParent dist "MMC-${{ github.ref_name }}-${{ matrix.platform }}.zip"
+            (cd dist && ditto -c -k --sequesterRsrc . "../MMC-${{ github.ref_name }}-${{ matrix.platform }}.zip")
           else
             7z a "MMC-${{ github.ref_name }}-${{ matrix.platform }}.zip" ./dist/*
           fi
@@ -60,9 +60,9 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          name: MMC v1.0.1
+          name: MMC ${{ github.ref_name }}
           body: |
-            MMC v1.0.1 refines block-rate modulation, startup behaviour, tap timing, and the low-pass coefficient curve.
+            MMC v1.0.2 adds a TAPS control for 6-10 taps while retaining the six-tap sound as its default.
 
             Reference-response accuracy: 0.00199% full-scale RMSE; 0.1429% full-scale maximum error.
 

@@ -17,6 +17,7 @@ struct Parameters {
     float wid = 1.0f;
     float lp = 1.0f;
     float inp = 1.0f;
+    float taps = 0.0f;
 };
 
 // Six-tap chorus core. Controls are quantised to 128 steps. Delay lengths and
@@ -44,7 +45,8 @@ public:
 
     void setParameters(const Parameters& value) {
         rawTarget = {toRaw(value.del), toRaw(value.dep), toRaw(value.spd), toRaw(value.mix),
-                     toRaw(value.fb), toRaw(value.wid), toRaw(value.lp), toRaw(value.inp)};
+                     toRaw(value.fb), toRaw(value.wid), toRaw(value.lp), toRaw(value.inp),
+                     toRaw(value.taps)};
         if (!smoothInitialised) {
             delayState = rawTarget[del] / 128.0f;
             smoothInitialised = true;
@@ -52,7 +54,7 @@ public:
     }
 
     void process(float inputLeft, float inputRight, float& outputLeft, float& outputRight) {
-        std::array<float, 8> p {};
+        std::array<float, 9> p {};
         for (size_t i = 0; i < p.size(); ++i) p[i] = rawTarget[i] / 128.0f;
         if (blockPosition == 0) {
             delayState += 0.02f * (p[del] - delayState);
@@ -73,21 +75,25 @@ public:
         const float centre = (14.91992352f + 992.0f * delayState) * static_cast<float>(rateScale);
         const float excursion = (502.34559759f * depthState) * static_cast<float>(rateScale);
         const float width = widthState;
-        const std::array<double, 3> offsets {0.0, twoPi / 3.0, 4.0 * pi / 3.0};
         const double phasePerSample = (p[spd] * p[spd] * (0x956 / 8388608.0)) / rateScale;
         const double nextPhase = phase + phasePerSample * 16.0;
         const float blockFraction = static_cast<float>(blockPosition) / 16.0f;
         std::array<float, 2> wet {};
-        for (size_t tap = 0; tap < 3; ++tap) {
-            const double leftPhase = phase + offsets[tap];
-            const double rightPhase = leftPhase + pi * static_cast<double>(width);
-            const float leftMod = static_cast<float>(std::sin(leftPhase))
-                + blockFraction * static_cast<float>(std::sin(nextPhase + offsets[tap]) - std::sin(leftPhase));
-            const float rightMod = static_cast<float>(std::sin(rightPhase))
-                + blockFraction * static_cast<float>(std::sin(nextPhase + offsets[tap]
-                    + pi * static_cast<double>(width)) - std::sin(rightPhase));
-            wet[0] += readLinear(0, centre + excursion * leftMod) * oneThird;
-            wet[1] += readLinear(1, centre + excursion * rightMod) * oneThird;
+        const int totalTaps = 6 + static_cast<int>(std::lround(p[taps] * 128.0f * 4.0f / 127.0f));
+        const std::array<int, 2> channelTaps {(totalTaps + 1) / 2, totalTaps / 2};
+        for (size_t channel = 0; channel < 2; ++channel) {
+            const int count = channelTaps[channel];
+            const float gain = count == 3 ? oneThird : 1.0f / static_cast<float>(count);
+            const double stereoPhase = channel == 0 ? 0.0 : pi * static_cast<double>(width);
+            for (int tap = 0; tap < count; ++tap) {
+                const double offset = twoPi * static_cast<double>(tap) / static_cast<double>(count)
+                    + stereoPhase;
+                const double tapPhase = phase + offset;
+                const float modulation = static_cast<float>(std::sin(tapPhase))
+                    + blockFraction * static_cast<float>(std::sin(nextPhase + offset)
+                                                          - std::sin(tapPhase));
+                wet[channel] += readLinear(channel, centre + excursion * modulation) * gain;
+            }
         }
         wet[0] = q23(wet[0]);
         wet[1] = q23(wet[1]);
@@ -113,7 +119,7 @@ public:
     }
 
 private:
-    enum Param : size_t { del, dep, spd, mix, fb, wid, lp, inp };
+    enum Param : size_t { del, dep, spd, mix, fb, wid, lp, inp, taps };
     static constexpr size_t ringSize = 8192;
     static constexpr size_t ringMask = ringSize - 1;
     static constexpr double pi = 3.1415926535897932384626433832795;
@@ -160,7 +166,7 @@ private:
     std::array<std::array<float, ringSize>, 2> delay {};
     size_t writeIndex = 0;
     std::array<float, 2> feedbackState {};
-    std::array<float, 8> rawTarget {64, 38, 0, 127, 127, 127, 127, 127};
+    std::array<float, 9> rawTarget {64, 38, 0, 127, 127, 127, 127, 127, 0};
     double phase = 5.92750579;
     unsigned blockPosition = 0;
     unsigned startupBlocks = 0;

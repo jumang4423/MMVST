@@ -9,7 +9,31 @@ constexpr auto fbId = "fb";
 constexpr auto widId = "wid";
 constexpr auto lpId = "lp";
 constexpr auto inpId = "inp";
+constexpr auto tapsId = "taps";
 constexpr float factoryMid = 64.0f / 127.0f;
+
+class MMCEditor final : public juce::AudioProcessorEditor {
+public:
+    explicit MMCEditor(juce::AudioProcessor& processorRef)
+        : juce::AudioProcessorEditor(processorRef), controls(processorRef) {
+        version.setText("MMC v1.0.2", juce::dontSendNotification);
+        version.setJustificationType(juce::Justification::centred);
+        version.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+        addAndMakeVisible(version);
+        addAndMakeVisible(controls);
+        setSize(std::max(controls.getWidth(), 360), controls.getHeight() + headerHeight);
+    }
+
+    void resized() override {
+        version.setBounds(0, 0, getWidth(), headerHeight);
+        controls.setBounds(0, headerHeight, getWidth(), getHeight() - headerHeight);
+    }
+
+private:
+    static constexpr int headerHeight = 30;
+    juce::Label version;
+    juce::GenericAudioProcessorEditor controls;
+};
 }
 
 MMCAudioProcessor::MMCAudioProcessor()
@@ -34,6 +58,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMCAudioProcessor::createPar
     make(widId, "WID", 1.0f);
     make(lpId, "LP", 1.0f);
     make(inpId, "INP", 1.0f);
+    make(tapsId, "TAPS", 0.0f);
     return layout;
 }
 
@@ -55,7 +80,7 @@ mmcdsp::Parameters MMCAudioProcessor::readParameters() const {
         return parameters.getRawParameterValue(id)->load();
     };
     return {value(delId), value(depId), value(spdId), value(mixId),
-            value(fbId), value(widId), value(lpId), value(inpId)};
+            value(fbId), value(widId), value(lpId), value(inpId), value(tapsId)};
 }
 
 void MMCAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
@@ -83,7 +108,7 @@ void MMCAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
 }
 
 juce::AudioProcessorEditor* MMCAudioProcessor::createEditor() {
-    return new juce::GenericAudioProcessorEditor(*this);
+    return new MMCEditor(*this);
 }
 
 void MMCAudioProcessor::getStateInformation(juce::MemoryBlock& destination) {

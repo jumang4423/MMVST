@@ -50,10 +50,14 @@ int main() {
     }
 
     constexpr std::array<double, 4> sampleRates {44100.0, 48000.0, 96000.0, 192000.0};
-    constexpr std::array<mmcdsp::Parameters, 3> settings {{
+    constexpr std::array<mmcdsp::Parameters, 7> settings {{
         {},
         {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
-        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}
+        {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f},
+        {0.5f, 0.5f, 0.5f, 1.0f, 0.5f, 0.5f, 1.0f, 0.5f, 0.25f},
+        {0.5f, 0.5f, 0.5f, 1.0f, 0.5f, 0.5f, 1.0f, 0.5f, 0.5f},
+        {0.5f, 0.5f, 0.5f, 1.0f, 0.5f, 0.5f, 1.0f, 0.5f, 0.75f},
+        {0.5f, 0.5f, 0.5f, 1.0f, 0.5f, 0.5f, 1.0f, 0.5f, 1.0f}
     }};
 
     for (const auto sampleRate : sampleRates) {

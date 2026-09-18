@@ -2,7 +2,7 @@
 
 Two compact stereo audio effects for macOS and Windows:
 
-- **MMC** — modulated 2 x 3-tap stereo chorus
+- **MMC** — modulated 6–10-tap stereo chorus
 - **MMD** — stereo-linked dynamics processor with peak/RMS detection and soft clipping
 
 Both VST3 plug-ins expose normalized `0..1` parameters and support mono or
@@ -11,23 +11,26 @@ optional extras in [`supercollider/`](supercollider/).
 
 ## Parameters
 
-MMC: `DEL DEP SPD MIX FB WID LP INP`
+MMC: `DEL DEP SPD MIX FB WID LP INP TAPS`
 
 MMD: `ATK REL THRS MIX RAT GAIN RMS INP`
 
 MMC quantises every control to 128 steps and uses 2048-sample circular delay
-lines at its 44.1 kHz reference rate, three linearly interpolated taps per
-channel, a one-pole filter inside the inverted feedback path, and a linear
+lines at its 44.1 kHz reference rate, linearly interpolated taps distributed
+across both channels, a one-pole filter inside the inverted feedback path, and a linear
 dry/wet crossfade. Delay time is rate-corrected in hosts running above 44.1
 kHz. Its performance defaults are `DEL=64/127`, `DEP=.3`, `SPD=0`, `MIX=1`,
 `FB=1`, `WID=1`, `LP=1`, and `INP=1`.
 
+`TAPS` selects 6–10 total taps in five discrete steps. Its default is `0`
+(six taps), which preserves the v1.0.1 sound.
+
 The core smoke test includes fixed impulse-response regressions in addition to
 finite-output and feedback stability tests at 44.1–192 kHz.
 
-### MMC v1.0.1 reconstruction status
+### MMC response accuracy
 
-MMC v1.0.1 refines the 128-step controls, six-tap topology, 16-sample
+The six-tap base mode uses 128-step controls, 16-sample
 modulation updates, inverted filtered feedback, startup behaviour, and the
 three principal impulse-response arrival samples. Against the settled
 8192-sample stereo reference response, it measures 0.00199% full-scale RMSE
